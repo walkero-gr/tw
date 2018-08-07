@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import urllib3, sys, getopt, json
+import urllib3, sys, getopt, json, subprocess
 from pprint import pprint
 
 http = urllib3.PoolManager()
@@ -143,6 +143,12 @@ def printTaskInfo(rawdata):
     print outputMessage
 
 
+def getGitBranch():
+    process = subprocess.Popen(["git", "branch"], stdout=subprocess.PIPE)
+    output = process.communicate()[0]
+    print output
+
+
 def main(argv):
 
 
@@ -172,14 +178,17 @@ def main(argv):
         elif opt in ("-i", "--task-info"):
             action = 'task-info'
 
-        elif opt in ("-n", "--new-task"):
-            verbose = 1
+        # elif opt in ("-n", "--new-task"):
+        #     action = 'new-task'
+
 
     # if len(sys.argv) < 2:
     #     helpText()
     #     sys.exit()
 
     introText()
+
+    getGitBranch()
 
     # Check if the user edited the YOUR_TEAMWORK_SITE_NAME and YOUR_API_KEY with his own
     if company == "YOUR_TEAMWORK_SITE_NAME" or key == "YOUR_API_KEY" :
@@ -228,7 +237,6 @@ def main(argv):
             else:
                 print "There was a problem with the provided task. Please check if the ID is the right one."
             sys.exit()
-
 
 
 
