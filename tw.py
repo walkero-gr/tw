@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
-import urllib3, sys, getopt, json
+import urllib3, sys, json, argparse
 from pprint import pprint
 
 http = urllib3.PoolManager()
 
-ver = "0.1"
+ver = "0.15"
 
 # To find the your teamwork site name and your API key
 # check the following page
@@ -27,25 +27,7 @@ class color:
 
 
 def introText():
-	print "tw v" + ver
-	print "Created by George Sokianos"
-
-def helpText():
-    introText()
-    print "https://github.com/walkero-gr/tw"
-    print "This is a python script that can be used to get information from Teamwork Projects Management\n"
-    print "tw.py [-h,-l,-s,-i] -p <projectName> -t <taskID>\n"
-    print "-h\tReturns this help text\n"
-    print "Parameters\n----------"
-    print "-p|--project\t\tThe project name"
-    print "-t|--task-id\t\tThe task ID"
-    print "\nActions\n-------"
-    print "The latest action overrides the previous defined, f.ex. if you give -l -s then only -s will be executed.\n"
-    print "-l|--list-tasks\t\tList tasks of the project. The project name parameter is mandatory."
-    print "-s|--list-projects\tList the available projects you have access to."
-    print "-i|--task-info\t\tShow information about the specified task. The task ID parameter is mandatory."
-    # print "-n|--new-task\t\tCreate a new task under the given project."
-
+	print 'tw.py v' + ver + ' - Created by George Sokianos'
 
 
 def getProjectIdByName(rawdata, projectName):
@@ -144,40 +126,34 @@ def printTaskInfo(rawdata):
 
 
 def main(argv):
-
-
     projectName = ''
     taskId = 0
     action = ''
 
-    try:
-        opts, args = getopt.getopt(argv,"hp:t:ltnsi",["project=","task-id=","list-tasks","new-task","--list-projects","task-info"])
+    # Parse the arguments
+    argParser = argparse.ArgumentParser(description='This is a python script that can be used to get information from Teamwork Projects Management. You can find more info at https://github.com/walkero-gr/tw')
+    argParser.add_argument('-p', '--project', action='store', dest='project_name', help='set the project name')
+    argParser.add_argument('-t', '--task', action='store', dest='task_id', type=int, help='set the task ID')
 
-    except getopt.GetoptError:
-        helpText()
-        sys.exit(2)
+    argParser.add_argument('-lt', '--list-tasks', action='store_true', default=False, dest='list_tasks', help='list tasks of the project. The project name parameter is mandatory.')
+    argParser.add_argument('-lp', '--list-projects', action='store_true', default=False, dest='list_proj', help='list the available projects you have access to.')
+    argParser.add_argument('-ti', '--task-info', action='store_true', default=False, dest='task_info', help='show information about the specified task. The task ID parameter is mandatory.')
 
-    for opt, arg in opts:
-        if opt == '-h':
-            helpText()
-            sys.exit()
-        elif opt in ("-p", "--project"):
-            projectName = arg.strip()
-        elif opt in ("-t", "--task-id"):
-            taskId = arg.strip()
-        elif opt in ("-l", "--list-tasks"):
-            action = 'list-tasks'
-        elif opt in ("-s", "--list-projects"):
-            action = 'list-projects'
-        elif opt in ("-i", "--task-info"):
-            action = 'task-info'
+    argParser.add_argument('--version', action='version', version='%(prog)s v' + ver)
 
-        elif opt in ("-n", "--new-task"):
-            verbose = 1
+    args = argParser.parse_args()
 
-    # if len(sys.argv) < 2:
-    #     helpText()
-    #     sys.exit()
+    if args.project_name :
+        projectName = args.project_name
+    if args.task_id :
+        taskId = args.task_id
+    if args.list_tasks :
+        action = 'list-tasks'
+    if args.list_proj :
+        action = 'list-projects'
+    if args.task_info :
+        action = 'task-info'
+
 
     introText()
 
@@ -213,9 +189,7 @@ def main(argv):
 
             if taskId > 0 :
                 taskData = apiGetTaskInfo(taskId)
-                print taskData
 
-                # if taskData['status'] == 'OK':
                 if 'error' not in taskData:
                     printTaskInfo(taskData)
                 elif taskData['status'] == 'error' and taskData['error'] == 'Not found':
