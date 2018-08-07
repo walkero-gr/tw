@@ -13,23 +13,37 @@ ver = "0.1"
 company = "YOUR_TEAMWORK_SITE_NAME"
 key = "YOUR_API_KEY"
 
+class color:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'
+
 
 def introText():
-	print "\ntw v" + ver
+	print "tw v" + ver
 	print "Created by George Sokianos"
 
 def helpText():
     introText()
     print "https://github.com/walkero-gr/tw"
     print "This is a python script that can be used to get information from Teamwork Projects Management\n"
-    print "tw.py [-h,-l,-s] -p <projectName>\n"
+    print "tw.py [-h,-l,-s,-i] -p <projectName> -t <taskID>\n"
+    print "-h\tReturns this help text\n"
     print "Parameters\n----------"
     print "-p|--project\t\tThe project name"
+    print "-t|--task-id\t\tThe task ID"
     print "\nActions\n-------"
     print "The latest action overrides the previous defined, f.ex. if you give -l -s then only -s will be executed.\n"
-    print "-h\t\t\tReturns this help text"
-    print "-l|--list-tasks\t\tList tasks of the project. Needs given project."
+    print "-l|--list-tasks\t\tList tasks of the project. The project name parameter is mandatory."
     print "-s|--list-projects\tList the available projects you have access to."
+    print "-i|--task-info\t\tShow information about the specified task. The task ID parameter is mandatory."
     # print "-n|--new-task\t\tCreate a new task under the given project."
 
 
@@ -61,6 +75,17 @@ def apiGetTasks(pid):
 
     response = request.status
     retData = json.loads(request.data)
+    return retData
+
+
+def apiGetTaskInfo(tid):
+    url = "https://{0}.teamwork.com/tasks/{1}.json".format(company, tid)
+    headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
+    request = http.request('GET', url, headers=headers)
+
+    response = request.status
+    retData = json.loads(request.data)
+
     return retData
 
 
@@ -96,12 +121,38 @@ def printTaskList(rawdata):
     print outputMessage
 
 
+def printTaskInfo(rawdata):
+    taskData = rawdata['todo-item']
+    outputMessage = "\n"
+    outputMessage += color.BOLD + taskData['content'] + color.END + '\n'
+    outputMessage += taskData['description'] + '\n\n'
+
+    outputMessage += taskData['project-name'] + ' > ' + taskData['todo-list-name'] + '\n'
+    outputMessage += 'Status: \t' + taskData['status'] + '\n'
+    outputMessage += 'Assigned: \t' + taskData['responsible-party-names'] + '\n'
+    outputMessage += 'Created: \t' + taskData['created-on'] + '\n'
+
+    nufSubtasks = len(taskData["predecessors"])
+    if nufSubtasks > 0 :
+        outputMessage += '\nSubtasks:\n--------\n'
+        for subkey, subtasks in enumerate(taskData["predecessors"]):
+            outputMessage += str(subtasks['id']) + '\t'
+            outputMessage += subtasks['name']
+            outputMessage += '\n'
+
+    print outputMessage
+
+
 def main(argv):
+
+
     projectName = ''
+    taskId = 0
     action = ''
 
     try:
-        opts, args = getopt.getopt(argv,"hp:ltns",["project=","list-tasks","new-task","--list-projects"])
+        opts, args = getopt.getopt(argv,"hp:t:ltnsi",["project=","task-id=","list-tasks","new-task","--list-projects","task-info"])
+
     except getopt.GetoptError:
         helpText()
         sys.exit(2)
@@ -112,10 +163,14 @@ def main(argv):
             sys.exit()
         elif opt in ("-p", "--project"):
             projectName = arg.strip()
+        elif opt in ("-t", "--task-id"):
+            taskId = arg.strip()
         elif opt in ("-l", "--list-tasks"):
             action = 'list-tasks'
         elif opt in ("-s", "--list-projects"):
             action = 'list-projects'
+        elif opt in ("-i", "--task-info"):
+            action = 'task-info'
 
         elif opt in ("-n", "--new-task"):
             verbose = 1
@@ -125,6 +180,12 @@ def main(argv):
     #     sys.exit()
 
     introText()
+
+    # Check if the user edited the YOUR_TEAMWORK_SITE_NAME and YOUR_API_KEY with his own
+    if company == "YOUR_TEAMWORK_SITE_NAME" or key == "YOUR_API_KEY" :
+        print "You have to give to give your teamwork site name and your API key for this script to work. Please, consult the README.md file."
+        sys.exit()
+
 
     if action == 'list-tasks':
         if projectName != '' :
@@ -141,10 +202,34 @@ def main(argv):
             print "You have to give a project name. Type -h to see the help text."
             sys.exit(2)
 
-    if action == 'list-projects':
+    elif action == 'list-projects':
         projectsData = apiGetProjects()
         printProjects(projectsData)
         sys.exit(2)
+
+    elif action == 'task-info':
+        try :
+            int(taskId)
+
+            if taskId > 0 :
+                taskData = apiGetTaskInfo(taskId)
+                print taskData
+
+                # if taskData['status'] == 'OK':
+                if 'error' not in taskData:
+                    printTaskInfo(taskData)
+                elif taskData['status'] == 'error' and taskData['error'] == 'Not found':
+                    print "The task you provided was not found."
+                    sys.exit(2)
+
+        except ValueError:
+            if taskId == '' :
+                print "You have to give a task ID. Type -h to see the help text."
+            else:
+                print "There was a problem with the provided task. Please check if the ID is the right one."
+            sys.exit()
+
+
 
 
 if __name__ == "__main__":
