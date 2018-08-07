@@ -20,6 +20,12 @@ As soon as you save the script you are good to go. Open a terminal and run the s
 tw.py [-h] [-p PROJECT_NAME] [-t TASK_ID] [-lt] [-lp] [-ti] [--version]
 ```
 
+To make it available from any folder on your Linux machine, you can edit the .bashrc file under your user home folder and add the following line at the end of the file.
+```
+export PATH=$PATH:</path/to/file>
+```
+
+
 #### Parameters and Actions
 ```bash
 tw.py [-h] [-p PROJECT_NAME] [-t TASK_ID] [-lt] [-lp] [-ti] [--version]
