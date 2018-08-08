@@ -17,24 +17,26 @@ key = "YOUR_API_KEY"
 ```
 As soon as you save the script you are good to go. Open a terminal and run the script using 
 ```bash
-tw.py [-h,-l,-s,-i] -p <projectName> -t <taskID>
+tw.py [-h] [-p PROJECT_NAME] [-t TASK_ID] [-lt] [-lp] [-ti] [--version]
 ```
+
+To make it available from any folder on your Linux machine, you can edit the .bashrc file under your user home folder and add the following line at the end of the file.
+```
+export PATH=$PATH:</path/to/file>
+```
+
 
 #### Parameters and Actions
 ```bash
-    tw.py [-h,-l,-s,-i] -p <projectName> -t <taskID>
+tw.py [-h] [-p PROJECT_NAME] [-t TASK_ID] [-lt] [-lp] [-ti] [--version]
     
-    -h      Returns this help text
+    -h, --help            show this help message and exit
+    
+    -p PROJECT_NAME, --project PROJECT_NAME     set the project name
+    -t TASK_ID, --task TASK_ID                  set the task ID
 
-    Parameters
-    ----------
-    -p|--project    The project name
-    -t|--task-id    The task ID
-
-    Actions
-    -------
-    The latest action overrides the previous defined, f.ex. if you give -l -s then only -s will be executed.
-    -l|--list-tasks     List tasks of the project. The project name parameter is mandatory.
-    -s|--list-projects  List the available projects you have access to.
-    -i|--task-info      Show information about the specified task. The task ID parameter is mandatory.
+    -lt, --list-tasks     list tasks of the project. The project name parameter is mandatory.
+    -lp, --list-projects  list the available projects you have access to.
+    -ti, --task-info      show information about the specified task. The task ID parameter is mandatory.
+    --version             show program's version number and exit
 ```
