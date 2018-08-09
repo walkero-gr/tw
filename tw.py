@@ -5,13 +5,18 @@ from pprint import pprint
 
 http = urllib3.PoolManager()
 
-ver = "0.15"
+ver = "0.16"
 
 # To find the your teamwork site name and your API key
 # check the following page
 # https://developer.teamwork.com/projects/finding-your-url-and-api-key/api-key-and-url
 company = "YOUR_TEAMWORK_SITE_NAME"
 key = "YOUR_API_KEY"
+
+# If you always use a default branch prefix, you can add it below
+# and use that when you use the --git-branch parameter
+default_branch_prefix = 'TW-#'
+
 
 class color:
    PURPLE = '\033[95m'
@@ -110,6 +115,7 @@ def printTaskInfo(rawdata):
     outputMessage += taskData['description'] + '\n\n'
 
     outputMessage += taskData['project-name'] + ' > ' + taskData['todo-list-name'] + '\n'
+    outputMessage += 'Task ID: \t' + str(taskData['id']) + '\n'
     outputMessage += 'Status: \t' + taskData['status'] + '\n'
     outputMessage += 'Assigned: \t' + taskData['responsible-party-names'] + '\n'
     outputMessage += 'Created: \t' + taskData['created-on'] + '\n'
@@ -126,24 +132,37 @@ def printTaskInfo(rawdata):
 
 
 def getGitBranch():
-    process = subprocess.Popen(["git", "branch"], stdout=subprocess.PIPE)
-    output = process.communicate()[0]
-    print output
+    currentBranch = ''
+    try :
+        process = subprocess.Popen(["git", "branch"], stdout=subprocess.PIPE)
+        output = process.communicate()[0]
+        outlist = output.split('\n')
+        for branch in outlist:
+            if '* ' in branch :
+                currentBranch = branch.replace('* ', '')
+    except subprocess.CalledProcessError as e:
+        print e.output
 
+    return currentBranch
 
 def main(argv):
-    projectName = ''
     taskId = 0
+    projectName = ''
     action = ''
+    branchPrefix = ''
+    if default_branch_prefix != '' :
+        branchPrefix = default_branch_prefix
 
     # Parse the arguments
     argParser = argparse.ArgumentParser(description='This is a python script that can be used to get information from Teamwork Projects Management. You can find more info at https://github.com/walkero-gr/tw')
     argParser.add_argument('-p', '--project', action='store', dest='project_name', help='set the project name')
     argParser.add_argument('-t', '--task', action='store', dest='task_id', type=int, help='set the task ID')
+    argParser.add_argument('-bp', '--branch-prefix', action='store', dest='branch_prefix', help='set branch prefix, if any. Used with --git-branch.')
 
     argParser.add_argument('-lt', '--list-tasks', action='store_true', default=False, dest='list_tasks', help='list tasks of the project. The project name parameter is mandatory.')
     argParser.add_argument('-lp', '--list-projects', action='store_true', default=False, dest='list_proj', help='list the available projects you have access to.')
     argParser.add_argument('-ti', '--task-info', action='store_true', default=False, dest='task_info', help='show information about the specified task. The task ID parameter is mandatory.')
+    argParser.add_argument('-gb', '--git-branch', action='store_true', default=False, dest='git_branch', help='show information about the task ID taken from the current GIT branch name. If task ID parameter is set, this action will be ignored.')
 
     argParser.add_argument('--version', action='version', version='%(prog)s v' + ver)
 
@@ -153,6 +172,8 @@ def main(argv):
         projectName = args.project_name
     if args.task_id :
         taskId = args.task_id
+    if args.branch_prefix :
+        branchPrefix = args.branch_prefix
     if args.list_tasks :
         action = 'list-tasks'
     if args.list_proj :
@@ -162,8 +183,6 @@ def main(argv):
 
 
     introText()
-
-    getGitBranch()
 
     # Check if the user edited the YOUR_TEAMWORK_SITE_NAME and YOUR_API_KEY with his own
     if company == "YOUR_TEAMWORK_SITE_NAME" or key == "YOUR_API_KEY" :
@@ -203,6 +222,25 @@ def main(argv):
                 elif taskData['status'] == 'error' and taskData['error'] == 'Not found':
                     print "The task you provided was not found."
                     sys.exit(2)
+            else:
+                if args.git_branch :
+                    gitBranch = getGitBranch()
+
+                    if gitBranch != '' :
+                        if branchPrefix != '' :
+                            taskId = gitBranch.replace(branchPrefix, '')
+                        else :
+                            taskId = gitBranch
+
+                        taskData = apiGetTaskInfo(taskId)
+
+                        if 'error' not in taskData and 'Bad request' not in taskData:
+                            printTaskInfo(taskData)
+                        elif taskData['status'] == 'error' and taskData['error'] == 'Not found':
+                            print "The task you provided was not found."
+                            sys.exit(2)
+                else :
+                    print "You have to give a task ID. Type -h to see the help text."
 
         except ValueError:
             if taskId == '' :
