@@ -5,7 +5,7 @@ from pprint import pprint
 
 http = urllib3.PoolManager()
 
-ver = "0.16"
+ver = "0.17"
 
 # To find the your teamwork site name and your API key
 # check the following page
@@ -55,7 +55,7 @@ def apiGetProjects():
     return retData
 
 
-def apiGetTasks(pid):
+def apiGetProjectTasks(pid):
     url = "https://{0}.teamwork.com/projects/{1}/tasks.json".format(company, pid)
     headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
     request = http.request('GET', url, headers=headers)
@@ -65,8 +65,30 @@ def apiGetTasks(pid):
     return retData
 
 
+def apiGetUserTasks(uid):
+    url = "https://{0}.teamwork.com/tasks.json?responsible-party-ids={1}".format(company, uid)
+    headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
+    request = http.request('GET', url, headers=headers)
+
+    response = request.status
+    retData = json.loads(request.data)
+
+    return retData
+
+
 def apiGetTaskInfo(tid):
     url = "https://{0}.teamwork.com/tasks/{1}.json".format(company, tid)
+    headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
+    request = http.request('GET', url, headers=headers)
+
+    response = request.status
+    retData = json.loads(request.data)
+
+    return retData
+
+
+def apiGetCurrentUser():
+    url = "https://{0}.teamwork.com/{1}".format(company, 'me.json')
     headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
     request = http.request('GET', url, headers=headers)
 
@@ -102,6 +124,7 @@ def printTaskList(rawdata):
         else :
             outputMessage += tasks['responsible-party-names'] + '\t\t'
 
+        outputMessage += color.BOLD + "(" + tasks['project-name'] + ") " + color.END + '\t'
         outputMessage += tasks['content'] + '\t\t'
         outputMessage += '\n'
 
@@ -145,6 +168,9 @@ def getGitBranch():
 
     return currentBranch
 
+
+
+
 def main(argv):
     taskId = 0
     projectName = ''
@@ -160,6 +186,7 @@ def main(argv):
     argParser.add_argument('-bp', '--branch-prefix', action='store', dest='branch_prefix', help='set branch prefix, if any. Used with --git-branch.')
 
     argParser.add_argument('-lt', '--list-tasks', action='store_true', default=False, dest='list_tasks', help='list tasks of the project. The project name parameter is mandatory.')
+    argParser.add_argument('-mt', '--my-tasks', action='store_true', default=False, dest='my_tasks', help='list my tasks across all project.')
     argParser.add_argument('-lp', '--list-projects', action='store_true', default=False, dest='list_proj', help='list the available projects you have access to.')
     argParser.add_argument('-ti', '--task-info', action='store_true', default=False, dest='task_info', help='show information about the specified task. The task ID parameter is mandatory.')
     argParser.add_argument('-gb', '--git-branch', action='store_true', default=False, dest='git_branch', help='show information about the task ID taken from the current GIT branch name. If task ID parameter is set, this action will be ignored.')
@@ -180,7 +207,8 @@ def main(argv):
         action = 'list-projects'
     if args.task_info :
         action = 'task-info'
-
+    if args.my_tasks :
+        action = 'my-tasks'
 
     introText()
 
@@ -197,7 +225,7 @@ def main(argv):
 
             if projectId > 0:
                 print "Project ID " + projectId
-                taskList = apiGetTasks(projectId)
+                taskList = apiGetProjectTasks(projectId)
                 printTaskList(taskList)
             else:
                 print "Requested project not found."
@@ -208,6 +236,13 @@ def main(argv):
     elif action == 'list-projects':
         projectsData = apiGetProjects()
         printProjects(projectsData)
+        sys.exit(2)
+
+    elif action == 'my-tasks':
+        userData = apiGetCurrentUser()
+        currentUserID = userData['person']['id']
+        tasksData = apiGetUserTasks(currentUserID)
+        printTaskList(tasksData)
         sys.exit(2)
 
     elif action == 'task-info':
