@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
-import urllib3, sys, argparse, json, subprocess
+import urllib3, sys, argparse, json, subprocess, textwrap
 from pprint import pprint
 
 http = urllib3.PoolManager()
 
-ver = "0.17"
+ver = "0.18"
 
 # To find the your teamwork site name and your API key
 # check the following page
@@ -99,36 +99,32 @@ def apiGetCurrentUser():
 
 
 def printProjects(rawdata):
-    outputMessage = ""
-    projectIdFound = 0
-    outputMessage += "Found " + str(len(rawdata["projects"])) + " Projects\n"
+    print "Found " + str(len(rawdata["projects"])) + " Projects"
 
     for pkey, projects in enumerate(rawdata["projects"]):
-        outputMessage += projects['id'] + '\t'
-        outputMessage += projects['created-on'] + '\t'
-        outputMessage += projects['name'] + '\t\t\t'
-        outputMessage += "\n"
-
-    print outputMessage
+        print "{0:<10} {1:<22} {2}".format(projects['id'], projects['created-on'], projects['name'])
 
 
 def printTaskList(rawdata):
-    outputMessage = ""
-    outputMessage += "Found " + str(len(rawdata["todo-items"])) + " Tasks\n"
+    strUserMaxWidth = 25
 
+    print "Found " + str(len(rawdata["todo-items"])) + " Tasks"
     for tkey, tasks in enumerate(rawdata["todo-items"]):
-        outputMessage += str(tasks['id']) + '\t'
-        outputMessage += tasks['created-on'] + '\t'
+        strUserLines = 0
+
         if 'responsible-party-names' not in tasks:
-            outputMessage += ' - \t\t\t'
+            responsibleUsers = ' - '
         else :
-            outputMessage += tasks['responsible-party-names'] + '\t\t'
+            responsibleUsers = textwrap.wrap(tasks['responsible-party-names'], strUserMaxWidth)
+            strUserLines = len(tasks['responsible-party-names']) / strUserMaxWidth
 
-        outputMessage += color.BOLD + "(" + tasks['project-name'] + ") " + color.END + '\t'
-        outputMessage += tasks['content'] + '\t\t'
-        outputMessage += '\n'
-
-    print outputMessage
+        print "{0:<10d} {1:<22} {2:<{userWidth}} {3:20} {4}".format(tasks['id'], tasks['created-on'], responsibleUsers[0], tasks['project-name'], tasks['content'], userWidth=strUserMaxWidth+2)
+        # If the string with user names is longer than the strUserMaxWidth, then print the rest of the lines under.
+        # This is a pseudo wrapping way to print it
+        if strUserLines > 0 :
+            for idx, userLine in enumerate(responsibleUsers) :
+                if idx > 0 :
+                    print "{0:34}{1:<27}".format("", userLine)
 
 
 def printTaskInfo(rawdata):
