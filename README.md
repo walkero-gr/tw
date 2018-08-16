@@ -1,10 +1,13 @@
 **tw.py** is a python script that can be used to get information from [Teamwork PM](http://teamworkpm.net/) to your terminal. It uses the [Teamwork Projects API](https://developer.teamwork.com/projects/introduction/welcome-to-the-teamwork-projects-api) to get the information and print them.
 
-Currently the script can:
+Features:
 - show the Projects the user has access to
 - show the Tasks of a given project
 - show basic information of a given task ID
 - get the task ID from the current GIT branch name
+- get current user task from all the projects
+- get a list of a project's tasklists
+- create a new task and assign to specific people
 
 
 ### Usage
