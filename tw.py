@@ -5,7 +5,7 @@ from pprint import pprint
 
 http = urllib3.PoolManager()
 
-ver = "0.19"
+ver = "0.20"
 
 # To find the your teamwork site name and your API key
 # check the following page
@@ -29,6 +29,13 @@ class color:
    BOLD = '\033[1m'
    UNDERLINE = '\033[4m'
    END = '\033[0m'
+
+
+class task(object):
+    title = ""
+    description = ""
+    users = []
+
 
 
 def introText():
@@ -78,8 +85,19 @@ def apiGetProjectTasklists(pid):
     return retData
 
 
-def apiGetTasklistTasks(pid):
-    url = "https://{0}.teamwork.com/tasklists/{1}/tasks.json".format(company, pid)
+def apiGetTasklistTasks(lid):
+    url = "https://{0}.teamwork.com/tasklists/{1}/tasks.json".format(company, lid)
+    headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
+    request = http.request('GET', url, headers=headers)
+
+    response = request.status
+    retData = json.loads(request.data)
+
+    return retData
+
+
+def apiGetTasklistData(lid):
+    url = "https://{0}.teamwork.com/tasklists/{1}.json".format(company, lid)
     headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
     request = http.request('GET', url, headers=headers)
 
@@ -115,6 +133,43 @@ def apiGetCurrentUser():
     url = "https://{0}.teamwork.com/{1}".format(company, 'me.json')
     headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
     request = http.request('GET', url, headers=headers)
+
+    response = request.status
+    retData = json.loads(request.data)
+
+    return retData
+
+
+def apiGetProjectUsers(pid):
+    url = "https://{0}.teamwork.com/projects/{1}/people.json".format(company, pid)
+    headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
+    request = http.request('GET', url, headers=headers)
+
+    response = request.status
+    retData = json.loads(request.data)
+
+    return retData
+
+
+def apiPostCreateTask(lid, taskobj):
+    url = "https://{0}.teamwork.com/tasklists/{1}/tasks.json".format(company, lid)
+
+    jsonBody = {
+        "todo-item":{
+            "content": taskobj.title,
+            "description": taskobj.description,
+            "notify" : "true"
+        }
+    }
+
+    # Check if there are users assigned and add them at the call
+    if len(taskobj.users) > 0 :
+        jsonBody['todo-item']["responsible-party-ids"] = str(','.join(taskobj.users))
+
+    encoded_body = json.dumps(jsonBody)
+
+    headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
+    request = http.request('POST', url, headers=headers, body=encoded_body)
 
     response = request.status
     retData = json.loads(request.data)
@@ -203,6 +258,56 @@ def getGitBranch():
     return currentBranch
 
 
+def parseTaskDescription(text, pid) :
+    newTask = task()
+
+    # Get the users, if any
+    try:
+        start = text.index( ' @' ) + len( ' @' )
+        # userIds = []
+        try :
+            end = text.index( ' ', start )
+        except ValueError:
+            end = len(text)
+        users = text[start:end]
+        text = text.replace(' @' + users, '')
+        # Split users by comma
+        users_list = users.split(',')
+
+        # Get the project users' ids and put them in a dictionary
+        allProjectUsersData = apiGetProjectUsers(pid)
+        allProjUserIDs = {}
+        for userData in allProjectUsersData["people"] :
+            lastName = userData['last-name'].lower()
+            userId = userData['id']
+            allProjUserIDs[lastName] = userId
+
+        # loop to given users and add the IDs to the newTask.users list
+        for userName in users_list :
+            if userName == 'me' :
+                userData = apiGetCurrentUser()
+                newTask.users.append(userData['person']['id'])
+            else :
+                try :
+                    newTask.users.append(allProjUserIDs[userName])
+                except KeyError:
+                    pass
+    except ValueError:
+        pass
+
+
+    # Get the description of the new task, if any
+    try:
+        start = text.index( ' [' ) + len( ' [' )
+        end = text.index( ']', start )
+        newTask.description = text[start:end]
+        text = text.replace(' [' + newTask.description + ']', '')
+    except ValueError:
+        pass
+
+    newTask.title = text
+
+    return newTask
 
 
 def main(argv):
@@ -211,6 +316,7 @@ def main(argv):
     tlistId = 0
     action = ''
     branchPrefix = ''
+    taskDescr = ''
     if default_branch_prefix != '' :
         branchPrefix = default_branch_prefix
 
@@ -227,7 +333,7 @@ def main(argv):
     argParser.add_argument('-lp', '--list-projects', action='store_true', default=False, dest='list_proj', help='list the available projects you have access to.')
     argParser.add_argument('-ti', '--task-info', action='store_true', default=False, dest='task_info', help='show information about the specified task. The task ID parameter is mandatory.')
     argParser.add_argument('-gb', '--git-branch', action='store_true', default=False, dest='git_branch', help='show information about the task ID taken from the current GIT branch name. If task ID parameter is set, this action will be ignored.')
-
+    argParser.add_argument('-ct', '--create-task', action='store', dest='create_task', help='create a new task. The tasklist ID parameter is mandatory. The value must be like "title @assigned-users [description]"')
 
     argParser.add_argument('--version', action='version', version='%(prog)s v' + ver)
 
@@ -251,6 +357,9 @@ def main(argv):
         action = 'task-info'
     if args.my_tasks :
         action = 'my-tasks'
+    if args.create_task :
+        action = 'create-task'
+        taskDescr = args.create_task
 
     introText()
 
@@ -281,7 +390,6 @@ def main(argv):
         else :
             print "You have to give a project name or a tasklist ID. Type -h to see the help text."
             sys.exit(2)
-
 
     elif action == 'list-tasklists':
         if projectName != '' :
@@ -348,6 +456,23 @@ def main(argv):
                 print "You have to give a task ID. Type -h to see the help text."
             else:
                 print "There was a problem with the provided task. Please check if the ID is the right one."
+            sys.exit()
+
+    elif action == 'create-task':
+        if tlistId :
+            tasklistData = apiGetTasklistData(tlistId)
+            projectId = tasklistData['todo-list']['projectId']
+            taskData = parseTaskDescription(taskDescr, projectId)
+            newTaskData = apiPostCreateTask(tlistId, taskData)
+
+            if newTaskData['STATUS'] == 'OK' :
+                print "The new task created succesfully. It's ID is " + str(newTaskData['id'])
+                print "To see the task info, type: tw.py -t " + str(newTaskData['id']) + " -ti"
+            else :
+                print "The task was not created. An error occured"
+            sys.exit()
+        else :
+            print "You have to give a tasklist ID. Type -h to see the help text."
             sys.exit()
 
 
