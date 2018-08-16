@@ -5,7 +5,7 @@ from pprint import pprint
 
 http = urllib3.PoolManager()
 
-ver = "0.18"
+ver = "0.19"
 
 # To find the your teamwork site name and your API key
 # check the following page
@@ -52,6 +52,7 @@ def apiGetProjects():
 
     response = request.status
     retData = json.loads(request.data)
+
     return retData
 
 
@@ -62,6 +63,29 @@ def apiGetProjectTasks(pid):
 
     response = request.status
     retData = json.loads(request.data)
+
+    return retData
+
+
+def apiGetProjectTasklists(pid):
+    url = "https://{0}.teamwork.com/projects/{1}/tasklists.json".format(company, pid)
+    headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
+    request = http.request('GET', url, headers=headers)
+
+    response = request.status
+    retData = json.loads(request.data)
+
+    return retData
+
+
+def apiGetTasklistTasks(pid):
+    url = "https://{0}.teamwork.com/tasklists/{1}/tasks.json".format(company, pid)
+    headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
+    request = http.request('GET', url, headers=headers)
+
+    response = request.status
+    retData = json.loads(request.data)
+
     return retData
 
 
@@ -99,16 +123,20 @@ def apiGetCurrentUser():
 
 
 def printProjects(rawdata):
-    print "Found " + str(len(rawdata["projects"])) + " Projects"
+    print "Found " + str(len(rawdata["projects"])) + " Projects\n"
 
+    print "Project ID  Project Name"
+    print "----------  ------------"
     for pkey, projects in enumerate(rawdata["projects"]):
-        print "{0:<10} {1:<22} {2}".format(projects['id'], projects['created-on'], projects['name'])
+        print "{0:<10}  {1}".format(projects['id'], projects['name'])
 
 
 def printTaskList(rawdata):
     strUserMaxWidth = 25
 
-    print "Found " + str(len(rawdata["todo-items"])) + " Tasks"
+    print "Found " + str(len(rawdata["todo-items"])) + " Tasks\n"
+    print "Task ID    Created On             Assign to                   Project Name         Progr.  Task Title"
+    print "---------  ---------------------  --------------------------  -------------------  ------  ------------------------"
     for tkey, tasks in enumerate(rawdata["todo-items"]):
         strUserLines = 0
 
@@ -118,13 +146,23 @@ def printTaskList(rawdata):
             responsibleUsers = textwrap.wrap(tasks['responsible-party-names'], strUserMaxWidth)
             strUserLines = len(tasks['responsible-party-names']) / strUserMaxWidth
 
-        print "{0:<10d} {1:<22} {2:<{userWidth}} {3:20} {4}".format(tasks['id'], tasks['created-on'], responsibleUsers[0], tasks['project-name'], tasks['content'], userWidth=strUserMaxWidth+2)
+        print "{0:<10d} {1:<22} {2:<{userWidth}} {3:20} {5:>2}%     {4}".format(tasks['id'], tasks['created-on'], responsibleUsers[0], tasks['project-name'], tasks['content'], tasks['progress'], userWidth=strUserMaxWidth+2)
         # If the string with user names is longer than the strUserMaxWidth, then print the rest of the lines under.
         # This is a pseudo wrapping way to print it
         if strUserLines > 0 :
             for idx, userLine in enumerate(responsibleUsers) :
                 if idx > 0 :
                     print "{0:34}{1:<27}".format("", userLine)
+
+
+def printTasklistsList(rawdata):
+    strUserMaxWidth = 25
+
+    print "Found " + str(len(rawdata["tasklists"])) + " Tasklists\n"
+    print "Tasklist ID  Tasks  Tasklist Name"
+    print "-----------  -----  -------------"
+    for tkey, tasklists in enumerate(rawdata["tasklists"]):
+        print "{0:<10}   {2:<5}  {1}".format(tasklists['id'], tasklists['name'], tasklists['uncompleted-count'])
 
 
 def printTaskInfo(rawdata):
@@ -170,6 +208,7 @@ def getGitBranch():
 def main(argv):
     taskId = 0
     projectName = ''
+    tlistId = 0
     action = ''
     branchPrefix = ''
     if default_branch_prefix != '' :
@@ -179,13 +218,16 @@ def main(argv):
     argParser = argparse.ArgumentParser(description='This is a python script that can be used to get information from Teamwork Projects Management. You can find more info at https://github.com/walkero-gr/tw')
     argParser.add_argument('-p', '--project', action='store', dest='project_name', help='set the project name')
     argParser.add_argument('-t', '--task', action='store', dest='task_id', type=int, help='set the task ID')
+    argParser.add_argument('-l', '--tasklist-id', action='store', dest='tasklist_id', type=int, help='set the tasklist ID')
     argParser.add_argument('-bp', '--branch-prefix', action='store', dest='branch_prefix', help='set branch prefix, if any. Used with --git-branch.')
 
     argParser.add_argument('-lt', '--list-tasks', action='store_true', default=False, dest='list_tasks', help='list tasks of the project. The project name parameter is mandatory.')
+    argParser.add_argument('-ll', '--list-tasklists', action='store_true', default=False, dest='list_tasklists', help='list tasklists of the project. The project name parameter is mandatory.')
     argParser.add_argument('-mt', '--my-tasks', action='store_true', default=False, dest='my_tasks', help='list my tasks across all project.')
     argParser.add_argument('-lp', '--list-projects', action='store_true', default=False, dest='list_proj', help='list the available projects you have access to.')
     argParser.add_argument('-ti', '--task-info', action='store_true', default=False, dest='task_info', help='show information about the specified task. The task ID parameter is mandatory.')
     argParser.add_argument('-gb', '--git-branch', action='store_true', default=False, dest='git_branch', help='show information about the task ID taken from the current GIT branch name. If task ID parameter is set, this action will be ignored.')
+
 
     argParser.add_argument('--version', action='version', version='%(prog)s v' + ver)
 
@@ -195,10 +237,14 @@ def main(argv):
         projectName = args.project_name
     if args.task_id :
         taskId = args.task_id
+    if args.tasklist_id :
+        tlistId = args.tasklist_id
     if args.branch_prefix :
         branchPrefix = args.branch_prefix
     if args.list_tasks :
         action = 'list-tasks'
+    if args.list_tasklists :
+        action = 'list-tasklists'
     if args.list_proj :
         action = 'list-projects'
     if args.task_info :
@@ -225,9 +271,33 @@ def main(argv):
                 printTaskList(taskList)
             else:
                 print "Requested project not found."
+        elif tlistId :
+            if tlistId > 0:
+                print "Tasklist ID " + str(tlistId)
+                taskList = apiGetTasklistTasks(tlistId)
+                printTaskList(taskList)
+            else:
+                print "Requested tasklist not found."
+        else :
+            print "You have to give a project name or a tasklist ID. Type -h to see the help text."
+            sys.exit(2)
+
+
+    elif action == 'list-tasklists':
+        if projectName != '' :
+            projectsData = apiGetProjects()
+            projectId = getProjectIdByName(projectsData, projectName)
+
+            if projectId > 0:
+                print "Project ID " + projectId
+                tasklistsList = apiGetProjectTasklists(projectId)
+                printTasklistsList(tasklistsList)
+            else:
+                print "Requested project not found."
         else :
             print "You have to give a project name. Type -h to see the help text."
             sys.exit(2)
+
 
     elif action == 'list-projects':
         projectsData = apiGetProjects()

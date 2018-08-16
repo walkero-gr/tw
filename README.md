@@ -18,8 +18,9 @@ key = "YOUR_API_KEY"
 ```
 As soon as you save the script you are good to go. Open a terminal and run the script using 
 ```bash
-tw.py [-h] [-p PROJECT_NAME] [-t TASK_ID] [-bp BRANCH_PREFIX] [-lt]
-             [-mt] [-lp] [-ti] [-gb] [--version]
+tw.py [-h] [-p PROJECT_NAME] [-t TASK_ID] [-l TASKLIST_ID]
+        [-bp BRANCH_PREFIX] [-lt] [-ll] [-mt] [-lp] [-ti] [-gb]
+        [--version]
 ```
 
 To make it available from any folder on your Linux machine, you can edit the .bashrc file under your user home folder and add the following line at the end of the file.
@@ -30,8 +31,9 @@ export PATH=$PATH:</path/to/file>
 
 #### Parameters and Actions
 ```bash
-tw.py [-h] [-p PROJECT_NAME] [-t TASK_ID] [-bp BRANCH_PREFIX] [-lt]
-             [-mt] [-lp] [-ti] [-gb] [--version]
+tw.py [-h] [-p PROJECT_NAME] [-t TASK_ID] [-l TASKLIST_ID]
+        [-bp BRANCH_PREFIX] [-lt] [-ll] [-mt] [-lp] [-ti] [-gb]
+        [--version]
 
 This is a python script that can be used to get information from Teamwork
 Projects Management. You can find more info at https://github.com/walkero-
@@ -43,10 +45,15 @@ optional arguments:
                         set the project name
   -t TASK_ID, --task TASK_ID
                         set the task ID
+  -l TASKLIST_ID, --tasklist-id TASKLIST_ID
+                        set the tasklist ID
   -bp BRANCH_PREFIX, --branch-prefix BRANCH_PREFIX
                         set branch prefix, if any. Used with --git-branch.
   -lt, --list-tasks     list tasks of the project. The project name parameter
                         is mandatory.
+  -ll, --list-tasklists
+                        list tasklists of the project. The project name
+                        parameter is mandatory.
   -mt, --my-tasks       list my tasks across all project.
   -lp, --list-projects  list the available projects you have access to.
   -ti, --task-info      show information about the specified task. The task ID
