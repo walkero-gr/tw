@@ -8,6 +8,7 @@ Features:
 - get current user task from all the projects
 - get a list of a project's tasklists
 - create a new task and assign to specific people
+- add time entries to a task
 
 
 ### Usage
@@ -85,7 +86,32 @@ This parameter is used to create a new task in a specific tasklist. So the param
 The user can set the title, the description and the assigned users to the new task using the following syntax.
 ```bash
 tw.py -l <tasklist id> -ct "title @assigned-users [description]"
+
+f.ex.
+tw.py -l 873848 -ct "Fix the login error @me [The login has error and need to check it]"
+tw.py -l 873848 -ct "Fix the registration @brown,lambard [Prepare the registration procedure]"
 ```
 - The **title** can be alphanumeric.
 - The **assigned-users** must have the **@** in front and works only with the last name of the users. Multiple users can be separated by commas. In case the user wants to assign the new task to himself, the **me** value can be used.
 - The **description** can be alphanumeric and has to be enclosed in brackets [].
+
+#### -tm ADD_TIME, --add-time ADD_TIME
+With this parameter it is possible to add a time entry to a task. The user can give the task ID using the **-t** parameter or let the script to retrieve it from the current Git branch, using the **-gb** parameter.
+
+To insert the necessary values for the time entry, like the start date and time, the duration and a description, the value syntax is the following
+```bash
+tw.py -t <task id> -tm "@start-date #start-time *duration [description]"
+
+f.ex. 
+tw.py -t 10773391 -tm "@2018-08-17 #11:37 *1:25 [description]"    # This adds a time entry for the task 
+                                                                  # with the given ID
+tw.py -gb -tm "@2018-08-17 #11:37 *1:25 [description]"      # This adds a time entry for the task 
+                                                            # that has the same name as the current 
+                                                            # Git branch
+tw.py -gb -tm "*1:25"   # This adds a time entry for today, with start time 1hour and 25 minutes ago 
+                        # and same duration. This is the absolute minimum entry.
+```
+- The **start-date** must have the **@** in front. This is optional value. When it is missing the current date is used.
+- The **start-time** must have the **#** in front. This is optional value. When it is missing the current time minus the duration is used.
+- The **duration** must have the **\*** in front. This is mandatory value.
+- The **description** can be alphanumeric and has to be enclosed in brackets []. It is optional value.

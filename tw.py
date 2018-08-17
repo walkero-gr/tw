@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
-import urllib3, sys, argparse, json, subprocess, textwrap
+import urllib3, sys, argparse, json, subprocess, textwrap, datetime, time
 from pprint import pprint
 
 http = urllib3.PoolManager()
 
-ver = "0.20"
+ver = "0.21"
 
 # To find the your teamwork site name and your API key
 # check the following page
@@ -35,6 +35,13 @@ class task(object):
     title = ""
     description = ""
     users = []
+
+
+class timeEntry(object):
+    startDate = ""
+    startTime = ""
+    duration = {}
+    description = ""
 
 
 
@@ -177,6 +184,35 @@ def apiPostCreateTask(lid, taskobj):
     return retData
 
 
+def apiPostCreateTimeEntry(tid, timeobj, uid):
+    url = "https://{0}.teamwork.com/tasks/{1}/time_entries.json".format(company, tid)
+
+    jsonBody = {
+        "time-entry":{
+            "description": timeobj.description,
+            "person-id": uid,
+            "date": timeobj.startDate,
+            "time": timeobj.startTime,
+            "hours": timeobj.duration['hours'],
+            "minutes": timeobj.duration['mins'],
+            "isbillable": "1",
+        }
+    }
+
+    encoded_body = json.dumps(jsonBody)
+
+    headers = urllib3.util.make_headers(basic_auth=key + ":xxx")
+    request = http.request('POST', url, headers=headers, body=encoded_body)
+
+    response = request.status
+    retData = json.loads(request.data)
+
+    if response == 201 :
+        print "Time entry created succesfully"
+        return retData
+    else :
+        return 0
+
 def printProjects(rawdata):
     print "Found " + str(len(rawdata["projects"])) + " Projects\n"
 
@@ -310,6 +346,59 @@ def parseTaskDescription(text, pid) :
     return newTask
 
 
+def parseTimeEntryDescription(text) :
+    newTimeEntry = timeEntry()
+
+    # Get the duration of the new time entry
+    try:
+        start = text.index( '*' ) + len( '*' )
+        end = text.index( ' ', start )
+        duration = text[start:end]
+        durationList = duration.split(':')
+        newTimeEntry.duration['hours'] = durationList[0]
+        newTimeEntry.duration['mins'] = durationList[1]
+        text = text.replace('*' + duration, '')
+    except ValueError:
+        # TODO: if the duration is missing, return an error
+        return 0
+
+    # Get the start date of the new time entry, if any
+    try:
+        start = text.index( '@' ) + len( '@' )
+        end = text.index( ' ', start )
+        newTimeEntry.startDate = text[start:end].replace('-', '')
+        text = text.replace('@' + newTimeEntry.startDate, '')
+    except ValueError:
+        # if the start date is missing, get today date
+        newTimeEntry.startDate = datetime.datetime.today().strftime('%Y%m%d')
+        pass
+
+    # Get the start time of the new time entry, if any
+    try:
+        start = text.index( '#' ) + len( '#' )
+        end = text.index( ' ', start )
+        newTimeEntry.startTime = text[start:end]
+        text = text.replace('#' + newTimeEntry.startTime, '')
+    except ValueError:
+        # if the start time is missing, get now - the given duration
+        durationSeconds = (int(newTimeEntry.duration['hours']) * 60 * 60) + (int(newTimeEntry.duration['mins']) * 60)
+        calcStartTime = time.time() - durationSeconds
+        newTimeEntry.startTime = datetime.datetime.fromtimestamp(calcStartTime).strftime('%H:%M')
+        pass
+
+    # Get the description of the new time entry, if any
+    try:
+        start = text.index( ' [' ) + len( ' [' )
+        end = text.index( ']', start )
+        newTimeEntry.description = text[start:end]
+        text = text.replace(' [' + newTimeEntry.description + ']', '')
+    except ValueError:
+        pass
+
+
+    return newTimeEntry
+
+
 def main(argv):
     taskId = 0
     projectName = ''
@@ -317,6 +406,7 @@ def main(argv):
     action = ''
     branchPrefix = ''
     taskDescr = ''
+    timeInfo = ''
     if default_branch_prefix != '' :
         branchPrefix = default_branch_prefix
 
@@ -334,6 +424,7 @@ def main(argv):
     argParser.add_argument('-ti', '--task-info', action='store_true', default=False, dest='task_info', help='show information about the specified task. The task ID parameter is mandatory.')
     argParser.add_argument('-gb', '--git-branch', action='store_true', default=False, dest='git_branch', help='show information about the task ID taken from the current GIT branch name. If task ID parameter is set, this action will be ignored.')
     argParser.add_argument('-ct', '--create-task', action='store', dest='create_task', help='create a new task. The tasklist ID parameter is mandatory. The value must be like "title @assigned-users [description]"')
+    argParser.add_argument('-tm', '--add-time', action='store', dest='add_time', help='add a time entry. The task ID parameter is mandatory.')
 
     argParser.add_argument('--version', action='version', version='%(prog)s v' + ver)
 
@@ -360,6 +451,17 @@ def main(argv):
     if args.create_task :
         action = 'create-task'
         taskDescr = args.create_task
+    if args.add_time :
+        action = 'add-time'
+        timeInfo = args.add_time
+    if args.git_branch :
+        gitBranch = getGitBranch()
+
+        if gitBranch != '' :
+            if branchPrefix != '' :
+                taskId = gitBranch.replace(branchPrefix, '')
+            else :
+                taskId = gitBranch
 
     introText()
 
@@ -432,24 +534,11 @@ def main(argv):
                     print "The task you provided was not found."
                     sys.exit(2)
             else:
-                if args.git_branch :
-                    gitBranch = getGitBranch()
-
-                    if gitBranch != '' :
-                        if branchPrefix != '' :
-                            taskId = gitBranch.replace(branchPrefix, '')
-                        else :
-                            taskId = gitBranch
-
-                        taskData = apiGetTaskInfo(taskId)
-
-                        if 'error' not in taskData and 'Bad request' not in taskData:
-                            printTaskInfo(taskData)
-                        elif taskData['status'] == 'error' and taskData['error'] == 'Not found':
-                            print "The task you provided was not found."
-                            sys.exit(2)
-                else :
-                    print "You have to give a task ID. Type -h to see the help text."
+                if 'error' not in taskData and 'Bad request' not in taskData:
+                    printTaskInfo(taskData)
+                elif taskData['status'] == 'error' and taskData['error'] == 'Not found':
+                    print "The task you provided was not found."
+                    sys.exit(2)
 
         except ValueError:
             if taskId == '' :
@@ -473,6 +562,26 @@ def main(argv):
             sys.exit()
         else :
             print "You have to give a tasklist ID. Type -h to see the help text."
+            sys.exit()
+
+    elif action == 'add-time':
+        try :
+            int(taskId)
+
+            if taskId > 0 :
+                userData = apiGetCurrentUser()
+                currentUserID = userData['person']['id']
+                timeEntryData = parseTimeEntryDescription(timeInfo)
+                if timeEntryData :
+                    apiPostCreateTimeEntry(taskId, timeEntryData, currentUserID)
+                else :
+                        print "There was a problem with the time entry value. Type -h to see the help text."
+                sys.exit()
+        except ValueError:
+            if taskId == '' :
+                print "You have to give a task ID. Type -h to see the help text."
+            else:
+                print "There was a problem with the provided task. Please check if the ID is the right one."
             sys.exit()
 
 
