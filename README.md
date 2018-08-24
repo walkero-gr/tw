@@ -8,6 +8,7 @@ Features:
 - get current user task from all the projects
 - get a list of a project's tasklists
 - create a new task and assign to specific people
+- create a new subtask and assign to specific people
 - add time entries to a task
 
 
@@ -24,7 +25,7 @@ As soon as you save the script you are good to go. Open a terminal and run the s
 ```bash
 tw.py [-h] [-p PROJECT_NAME] [-t TASK_ID] [-l TASKLIST_ID]
       [-bp BRANCH_PREFIX] [-lt] [-ll] [-mt] [-lp] [-ti] [-gb]
-      [-ct CREATE_TASK] [--version]
+      [-ct CREATE_TASK] [-tm ADD_TIME] [--version]
 ```
 
 To make it available from any folder on your Linux machine, you can edit the .bashrc file under your user home folder and add the following line at the end of the file.
@@ -37,10 +38,11 @@ export PATH=$PATH:</path/to/file>
 ```bash
 tw.py [-h] [-p PROJECT_NAME] [-t TASK_ID] [-l TASKLIST_ID]
       [-bp BRANCH_PREFIX] [-lt] [-ll] [-mt] [-lp] [-ti] [-gb]
-      [-ct CREATE_TASK] [--version]
+      [-ct CREATE_TASK] [-tm ADD_TIME] [--version]
 
 This is a python script that can be used to get information from Teamwork
-Projects Management. More info at https://github.com/walkero-gr/tw
+Projects Management. You can find more info at https://github.com/walkero-
+gr/tw
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -65,8 +67,14 @@ optional arguments:
                         current GIT branch name. If task ID parameter is set,
                         this action will be ignored.
   -ct CREATE_TASK, --create-task CREATE_TASK
-                        create a new task. The tasklist ID parameter is
-                        mandatory. The value must be like "title @assigned-users [description]"
+                        create a new task and assign it to specific users. The 
+                        tasklist ID (-l) or a task ID (-t) or the git branch 
+                        (-gb) parameter is mandatory. The value syntax is 
+                        "title @assigned-users [description]"
+  -tm ADD_TIME, --add-time ADD_TIME
+                        add a time entry. The task ID parameter is mandatory.
+                        The value syntax is "@start-date #start-time *duration
+                        [description]"
   --version             show program's version number and exit
 ```
 
@@ -81,15 +89,20 @@ This parameter is used with --git-branch, where the user can specify a prefix he
 There is also a new variable at the start of the script, named **default_branch_prefix**, where the user can set a default branch prefix, which will be used when the --git-branch is used and the --branch-prefix is missing. The user can override it by setting a value at the --branch-prefix parameter.
 
 ##### -ct CREATE_TASK, --create-task CREATE_TASK 
-This parameter is used to create a new task in a specific tasklist. So the parameter **-l TASKLIST_ID, --tasklist-id TASKLIST_ID** is mandatory.
+This action is used to create:
+- a new task in a specific tasklist, using the parameter **-l TASKLIST_ID, --tasklist-id TASKLIST_ID**
+- a new subtask under specific task, using the parameter **-t TASK_ID, --task TASK_ID** or the **-gb, --git-branch**
 
-The user can set the title, the description and the assigned users to the new task using the following syntax.
+The user can set the title, the description and the assigned users to the new task/subtask, with the following syntax.
 ```bash
 tw.py -l <tasklist id> -ct "title @assigned-users [description]"
+tw.py -t <task id> -ct "title @assigned-users [description]"
+tw.py -gb -ct "title @assigned-users [description]"                     # Get the task ID from the current GIT branch name
 
 f.ex.
 tw.py -l 873848 -ct "Fix the login error @me [The login has error and need to check it]"
 tw.py -l 873848 -ct "Fix the registration @brown,lambard [Prepare the registration procedure]"
+tw.py -t 10773391 -ct "Fix the registration @brown,lambard [Prepare the registration procedure]"
 ```
 - The **title** can be alphanumeric.
 - The **assigned-users** must have the **@** in front and works only with the last name of the users. Multiple users can be separated by commas. In case the user wants to assign the new task to himself, the **me** value can be used.

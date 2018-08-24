@@ -5,7 +5,7 @@ from pprint import pprint
 
 http = urllib3.PoolManager()
 
-ver = "0.21"
+ver = "0.22"
 
 # To find the your teamwork site name and your API key
 # check the following page
@@ -19,16 +19,16 @@ default_branch_prefix = 'TW-#'
 
 
 class color:
-   PURPLE = '\033[95m'
-   CYAN = '\033[96m'
-   DARKCYAN = '\033[36m'
-   BLUE = '\033[94m'
-   GREEN = '\033[92m'
-   YELLOW = '\033[93m'
-   RED = '\033[91m'
-   BOLD = '\033[1m'
-   UNDERLINE = '\033[4m'
-   END = '\033[0m'
+   PURPLE       = '\033[95m'
+   CYAN         = '\033[96m'
+   DARKCYAN     = '\033[36m'
+   BLUE         = '\033[94m'
+   GREEN        = '\033[92m'
+   YELLOW       = '\033[93m'
+   RED          = '\033[91m'
+   BOLD         = '\033[1m'
+   UNDERLINE    = '\033[4m'
+   END          = '\033[0m'
 
 
 class task(object):
@@ -158,8 +158,11 @@ def apiGetProjectUsers(pid):
     return retData
 
 
-def apiPostCreateTask(lid, taskobj):
-    url = "https://{0}.teamwork.com/tasklists/{1}/tasks.json".format(company, lid)
+def apiPostCreateTask(lid, taskobj, edge):
+    if edge == 'tasks' :
+        url = "https://{0}.teamwork.com/tasks/{1}.json".format(company, lid)
+    elif edge == 'tasklists' :
+        url = "https://{0}.teamwork.com/tasklists/{1}/tasks.json".format(company, lid)
 
     jsonBody = {
         "todo-item":{
@@ -247,8 +250,6 @@ def printTaskList(rawdata):
 
 
 def printTasklistsList(rawdata):
-    strUserMaxWidth = 25
-
     print "Found " + str(len(rawdata["tasklists"])) + " Tasklists\n"
     print "Tasklist ID  Tasks  Tasklist Name"
     print "-----------  -----  -------------"
@@ -423,8 +424,8 @@ def main(argv):
     argParser.add_argument('-lp', '--list-projects', action='store_true', default=False, dest='list_proj', help='list the available projects you have access to.')
     argParser.add_argument('-ti', '--task-info', action='store_true', default=False, dest='task_info', help='show information about the specified task. The task ID parameter is mandatory.')
     argParser.add_argument('-gb', '--git-branch', action='store_true', default=False, dest='git_branch', help='show information about the task ID taken from the current GIT branch name. If task ID parameter is set, this action will be ignored.')
-    argParser.add_argument('-ct', '--create-task', action='store', dest='create_task', help='create a new task. The tasklist ID parameter is mandatory. The value must be like "title @assigned-users [description]"')
-    argParser.add_argument('-tm', '--add-time', action='store', dest='add_time', help='add a time entry. The task ID parameter is mandatory.')
+    argParser.add_argument('-ct', '--create-task', action='store', dest='create_task', help='create a new task and assign it to specific users. The tasklist ID (-l) or a task ID (-t) or the git branch (-gb) parameter is mandatory. The value syntax is "title @assigned-users [description]"')
+    argParser.add_argument('-tm', '--add-time', action='store', dest='add_time', help='add a time entry. The task ID parameter is mandatory. The value syntax is "@start-date #start-time *duration [description]"')
 
     argParser.add_argument('--version', action='version', version='%(prog)s v' + ver)
 
@@ -552,7 +553,7 @@ def main(argv):
             tasklistData = apiGetTasklistData(tlistId)
             projectId = tasklistData['todo-list']['projectId']
             taskData = parseTaskDescription(taskDescr, projectId)
-            newTaskData = apiPostCreateTask(tlistId, taskData)
+            newTaskData = apiPostCreateTask(tlistId, taskData, 'tasklists')
 
             if newTaskData['STATUS'] == 'OK' :
                 print "The new task created succesfully. It's ID is " + str(newTaskData['id'])
@@ -560,6 +561,20 @@ def main(argv):
             else :
                 print "The task was not created. An error occured"
             sys.exit()
+
+        elif taskId :
+            taskInfo = apiGetTaskInfo(taskId)
+            projectId = taskInfo['todo-item']['project-id']
+            taskData = parseTaskDescription(taskDescr, projectId)
+            newTaskData = apiPostCreateTask(taskId, taskData, 'tasks')
+
+            if newTaskData['STATUS'] == 'OK' :
+                print "The new task created succesfully. It's ID is " + str(newTaskData['id'])
+                print "To see the task info, type: tw.py -t " + str(newTaskData['id']) + " -ti"
+            else :
+                print "The task was not created. An error occured"
+            sys.exit()
+
         else :
             print "You have to give a tasklist ID. Type -h to see the help text."
             sys.exit()
